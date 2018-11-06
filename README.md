@@ -25,7 +25,9 @@ MyLogisticReg class and change lambda there
 
 
 Final Accuracy estimations after K-fold cross validation are as follows:
+
 Titanic dataset classifier: 0.760 +/- 0.036
+
 MNIST data set classifier: 0.9553 +/- 0.0067
 
 
