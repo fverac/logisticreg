@@ -12,9 +12,9 @@ python3 [filename]
 There are two different files/classifiers for the different datasets
 (named titanic.py and mnist.py)
 
-In both of them, Full gradient descent runs by default,  with SGD being commented out.
+In both of them, Full gradient descent is used to minimize the loss function by default,  with Stochastic Gradient Descent (SGD) being commented out.
 In order to run SGD, Follow the instructions given in the comments at the top
-of the files
+of the files.
 
 Code for K fold cross validation is left in, but commented out
 
