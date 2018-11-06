@@ -1,0 +1,285 @@
+import autograd.numpy as np
+import csv
+from autograd import grad 
+from autograd.numpy import linalg as LA #used to calculate 1-norm for loop condition
+
+import time #used for timing for experiments
+import pickle
+
+
+
+"""NOTE: 
+If running on SGD, go to lines 100-112 and follow instructions to change code
+
+"""
+
+
+class MyLogisticReg:
+
+	def __init__(self, options):
+		self.ww0 = np.random.rand(786,1)
+
+		pass
+
+
+	def fit(self, X, y):
+		"""Fit model, this function trains model parameters with input train data X and y
+		X data array
+		Y label vector"""
+		
+		#scale the data
+		xtrain = X/255
+		ytrain = y - 8
+
+		"""condfun
+		takes ww0 and ww0 prev
+		and returns true if grad descent loop can continue 
+		"""
+		def condfun(ww0, ww0prev):
+			important = (1/786) * LA.norm(ww0 - ww0prev, 1)
+			#print (important) #for debugging threshold comparison
+			return (important > 0.0005)
+
+		"""desc
+		takes ww0 and t 
+		(t is unnecessary in this implementation, but could be used to calculate step size)
+		and returns new ww0 based on gradient descent formula 
+		"""
+		def desc(ww0, t):
+			alphat = .000001#1/(100*(1+t))
+			ww0new = ww0 - alphat * grad_func(ww0)
+
+			return ww0new
+
+
+		"""loss
+		takes ww0 (ww0 is vector w concatenated with w0 at the end)
+		and calculates the loss 
+		"""
+		def loss(ww0):
+			lamda = 1 #set lambda
+			w = ww0[0:785] #split off w and w0
+			w0 = ww0[785]
+			eta = np.matmul(xtrain,w) + w0 
+			c1 = np.matmul(np.transpose(ytrain), eta)
+			etabig = eta[eta > 30] #mask based on size of eta
+			etasmall = eta[eta <= 30]
+			etasmall = np.log( np.exp(etasmall) + 1 )
+
+			c2 = np.sum(etabig) + np.sum(etasmall)
+			loss = (lamda/2) * np.matmul(np.transpose(w),w)
+			loss = loss - (c1-c2)
+			return loss;
+
+		"""loss2
+		takes ww0 (ww0 is vector w concatenated with w0 at the end)
+		and calculates the loss
+		NOTE: This is the SGD varient of the loss function
+		"""
+		def loss2(ww0):
+			#assign batches
+			ind = int(t%462)
+			xbatch = xbatches[ind]
+			ybatch = ybatches[ind]
+
+			#rest of function is identical to loss, barring the one commented line
+			lamda = 1
+			w = ww0[0:785]
+			w0 = ww0[785]
+			eta = np.matmul(xbatch,w) + w0 #vec
+			c1 = np.matmul(np.transpose(ybatch), eta)
+			etabig = eta[eta > 30]
+			etasmall = eta[eta <= 30]
+			etasmall = np.log( np.exp(etasmall) + 1 )
+
+			c2 = np.sum(etabig) + np.sum(etasmall) 
+			loss = (lamda/2) * np.matmul(np.transpose(w),w)
+			loss = loss - np.size(xtrain,0) * (c1-c2) / 10  #10 is batch size
+			return loss;
+
+
+		#NOTE: UNCOMMENT THE BELOW IF RUNNING WITH SGD.
+		#The below is used to divide the training set into batches of size 10
+		"""
+		#ok = np.floor_divide(np.size(xtrain,0),10) * 10
+		#xbatches = xtrain[0:ok]
+		xbatches = np.split(xtrain, 462)
+		#ybatches = ytrain[0:ok]
+		ybatches = np.split(ytrain, 462)
+		"""
+		
+
+		#NOTE: IF RUNNING SGD, change loss to loss2
+		grad_func = grad(loss)
+
+		#set initial values for gradient descent
+		ww0 = self.ww0
+		ww0prev = self.ww0
+		cond = True
+		t = 0.0
+		#start = time.time() #START TIMER: EXPERIMENT ONLY
+		while(cond and t < 10000):
+
+			#every 100 iterations, check the condition
+			if (t%100 == 0 and t != 0):
+				"""TIMING CODE: EXPERIMENT ONLY
+				if (t%500 == 0):
+					end = time.time()
+					print("\n\n\n")
+					print(start-end)
+					print(t)
+				"""
+
+				cond = condfun(ww0,ww0prev)
+				#print( loss(ww0) ) #prints the loss. Useful for debugging
+
+			ww0 = desc(ww0, t)
+			if (t >= 100):
+				ww0prev = desc(ww0prev, t - 100)
+
+			t = t + 1.0
+
+		#print("out of loop: " + str(t)) #debugging code to determine number of iterations to exit loop
+
+		#update weights in MyLogisticReg
+		self.ww0 = ww0
+		pass
+
+
+	def predict(self, X):
+		"""Predict using the logistic regression model
+		X is a data matrix"""
+		
+		X = X/255 #scale X
+		realw = self.ww0[0:785]
+		realw0 = self.ww0[785]
+
+		predlabels = np.matmul(X, realw) + realw0
+		predlabels = predlabels > 0
+		predlabels = predlabels * 1
+		predlabels = predlabels + 8  #Scale y
+
+		return predlabels
+
+
+
+
+
+def evaluate(y_test, y_pred):
+	"""Evaluate accuracy of predictions against true labels"""
+	accuracy = (np.sum(np.equal(y_test, y_pred).astype(np.float))/y_test.size)
+	return accuracy;
+
+
+
+
+
+def main():
+
+	#initialize X and y
+	#NOTE: size of data is hard-coded
+	X = np.zeros((6601,785))
+	y = np.zeros((6601,1))
+
+	##read in the data into X and y
+	rownum = -1 #begin at -1, first row is useless
+
+	with open('mnist-train.csv', newline ='') as f:
+		reader = csv.reader(f)
+
+		for row in reader:
+			
+			if (rownum == -1): #skip first row
+				rownum = rownum+1
+				continue
+
+			#read into X
+			for i in range(785):
+				X[rownum,i]= row[i+1]
+			
+			#read into y
+			y[rownum]=row[0]
+			
+			#increment y			
+			rownum = rownum + 1
+	#have X,Y now
+
+	#CODE TO SHUFFLE THE DATA. USED PRIMARILY FOR SGD
+	"""
+	Xy = np.append(X,y,1);
+	np.random.shuffle(Xy)
+	y= (Xy[:,785]).reshape((6601,1))
+	X = Xy[:,:-1]
+	"""
+
+
+	#split into 7:3
+	xtrain = X[0:4620]
+	ytrain = y[0:4620]
+
+	xtest = X[4620:6601]
+	ytest = y[4620:6601]	
+	#
+	#
+	#
+	#data has been taken in and prepared
+
+	"""run classifier on training data and 
+	test on both training and test data
+	options = None
+	classy = MyLogisticReg(options)
+	classy.fit(xtrain,ytrain)
+	predlabs = classy.predict(xtest)
+	print( evaluate(predlabs, ytest) )
+	print("TRAINING SET:")
+	pred2 = classy.predict(xtrain)
+	print( evaluate(pred2, ytrain) )
+	"""
+
+	#train classifier, dump onto pickle, load pickle, and test
+	options = None
+	classifier = MyLogisticReg(options)
+	classifier.fit(X,y)
+	pickle.dump(classifier, open("mnist_classifer.pkl","wb") )
+	infile = open("mnist_classifer.pkl","rb")
+	ok = pickle.load(infile)
+	pred = ok.predict(X)
+	print( evaluate(pred, y) )
+	
+	
+	#The following is code for K-folds cross validation, with k = 5
+	"""
+	xfolds = np.split(X,7) #split data into k batches
+	yfolds = np.split(y,7)
+	
+	#run k iterations of cross validation
+	for k in range(0,7):
+
+		#initialize training and validation sets
+		xtr = np.zeros((0,785))
+		ytr = np.zeros((0,1))
+		xval = np.zeros((0,785))
+		yval = np.zeros((0,1))
+		
+		#accumulate training set and validation set
+		for i in range(0,7):
+			if (i == k):
+				xval = xfolds[i]
+				yval = yfolds[i]
+			else:
+				xtr = np.append(xtr, xfolds[i],0)
+				ytr = np.append(ytr, yfolds[i],0)
+
+		#run classifier on training and validation set and report accuracy
+		classy = MyLogisticReg(options)
+		classy.fit(xtr, ytr)
+		predk = classy.predict(xval)
+		print("k =: " + str(k))
+		evaluate(predk, yval)
+	"""
+
+
+
+
+
+main()
