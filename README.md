@@ -1,5 +1,5 @@
 # logisticreg
-Logistic Regression classifiers for 2 different datasets.
+Logistic Regression classifiers built using numpy and autograd that work with 2 different datasets.
 
 Fabio Vera
 
